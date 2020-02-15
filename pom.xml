@@ -67,7 +67,7 @@
                     <archive>
                         <manifest>
                             <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-                            <mainClass>net.team33.undup.Main</mainClass>
+                            <mainClass>de.team33.cmds.dedupe.Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptors>

@@ -1,5 +1,7 @@
-package net.team33.undup;
+package de.team33.test.dedupe;
 
+import de.team33.cmds.dedupe.Main;
+import net.team33.undup.Args;
 import org.junit.Test;
 
 import java.nio.file.InvalidPathException;

@@ -1,4 +1,6 @@
-package net.team33.undup;
+package de.team33.cmds.dedupe;
+
+import net.team33.undup.Args;
 
 public class Main {
 
