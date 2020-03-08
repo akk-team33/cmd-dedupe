@@ -29,6 +29,7 @@ public class FileJob {
     }
 
     private HashCode getHashCode(final HashCode pre) throws IOException {
+        throw new UnsupportedOperationException("not yet implemented");
     }
 
     private HashCode getHashCode() throws IOException {
@@ -37,6 +38,6 @@ public class FileJob {
     }
 
     private HashCode newHashCode() throws IOException {
-        final InputStream in = Files.newInputStream(path, StandardOpenOption.READ);
+        throw new UnsupportedOperationException("not yet implemented");
     }
 }
