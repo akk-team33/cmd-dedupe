@@ -1,0 +1,15 @@
+
+The given command line arguments do not meet the requirements!
+
+Given: [arg1, arg2, arg3]
+
+Exactly one argument was expected:
+
+- The path to a dedupe job configuration file
+
+If the file exists, it will be read and the job will be executed according to
+the given configuration.
+
+If the file does not exist, a file containing a sample configuration is
+created using the given path. This can then be edited with a text editor in
+order to then execute this command again with the same parameter.

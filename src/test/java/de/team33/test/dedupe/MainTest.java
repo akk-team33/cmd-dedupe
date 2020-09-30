@@ -1,91 +1,118 @@
 package de.team33.test.dedupe;
 
+import de.team33.cmds.dedupe.ImproperArgumentException;
 import de.team33.cmds.dedupe.Main;
+import de.team33.cmds.dedupe.patterns.Lazy;
+import de.team33.cmds.dedupe.patterns.Resources;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.function.Supplier;
+import java.util.*;
 import java.util.stream.Collectors;
-
-import static java.util.stream.Collectors.joining;
+import java.util.stream.Stream;
 
 public class MainTest {
 
+    private static final Path TEST_PATH = Paths.get("target", "testing", UUID.randomUUID().toString());
     private static final Path SOURCE_PATH = Paths.get("src", "main", "java");
-    private static final Path SUBJECT_PATH = Paths.get("target", "testing", "subject");
-    private static final Path DOUBLET_PATH = Paths.get("target", "testing", "doublet");
+    private static final Path SUBJECT_PATH;
+    private static final Path DOUBLET_PATH;
 
-    @Test
-    public void mainEmpty() throws Exception {
-        try {
-            Main.main();
-            Assert.fail("expected IllegalArgumentException but was none");
-        } catch (final IllegalArgumentException caught) {
-            caught.printStackTrace();
-            // TODO: verify caught;
-        }
+    static {
+        SUBJECT_PATH = TEST_PATH.resolve("unique");
+        DOUBLET_PATH = TEST_PATH.resolve("doublet");
     }
 
-    @Test
-    public void main() throws Exception {
-        Main.main(SUBJECT_PATH.toString(), DOUBLET_PATH.toString());
-        Assert.assertEquals(new Entry(SOURCE_PATH), new Entry(DOUBLET_PATH));
+    @BeforeClass
+    public static void beforeClass() throws IOException {
+        Files.createDirectories(TEST_PATH);
+        copy(SOURCE_PATH, SUBJECT_PATH);
+        copy(SOURCE_PATH, DOUBLET_PATH);
     }
 
-    private class Entry implements Comparable<Entry> {
-
-        private final String name;
-        private final Set<Entry> entries;
-
-        private transient Supplier<String> stringSupplier = new NewString();
-
-        Entry(final Path path) {
-            this.name = path.getFileName().toString();
-            if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
-                try {
-                    this.entries = Files.list(path)
-                                        .map(Entry::new)
-                                        .collect(Collectors.toCollection(TreeSet::new));
-                } catch (IOException e) {
-                    throw new IllegalStateException("cannot read directory <" + path + ">");
-                }
+    private static void copy(final Path source, final Path target) throws IOException {
+        Files.createDirectory(target);
+        final List<Path> children = Files.list(source).collect(Collectors.toList());
+        for (final Path srcChild : children) {
+            final Path tgtChild = target.resolve(srcChild.getFileName());
+            if (Files.isDirectory(srcChild)) {
+                copy(srcChild, tgtChild);
             } else {
-                this.entries = null;
+                Files.copy(srcChild, tgtChild);
             }
         }
+    }
 
-        private String newString(final String indent) {
-            return new StringBuilder(indent).append(name)
-                                            .append(": ")
-                                            .append(newString(indent, entries))
-                                            .toString();
+    @Test
+    public void mainNoArgs() throws Exception {
+        mainImproperArgs(Resources.load(MainTest.class, "expectedNoArgs.txt"));
+    }
+
+    @Test
+    public final void mainTwoArgs() throws Exception {
+        mainImproperArgs(Resources.load(MainTest.class, "expectedTwoArgs.txt"), "arg1", "arg2");
+    }
+
+    @Test
+    public final void mainMoreArgs() throws Exception {
+        mainImproperArgs(Resources.load(MainTest.class, "expectedMoreArgs.txt"), "arg1", "arg2", "arg3");
+    }
+
+    private static void mainImproperArgs(final String expected, final String... args) throws Exception {
+        try {
+            Main.main(args);
+            Assert.fail("expected ImproperArgumentException but was none");
+        } catch (final ImproperArgumentException caught) {
+            caught.printStackTrace();
+            Assert.assertEquals(expected, caught.getMessage());
         }
+    }
 
-        private String newString(final String indent, final Set<Entry> entries) {
-            return null == entries
-                    ? "null"
-                    : (entries.isEmpty() ? "{}" : entries.stream()
-                                                         .map(entry -> entry.newString("   " + indent))
-                                                         .collect(joining("\n", "{\n", "\n" + indent + "}")));
-        }
+    @Test
+    public final void mainNewJob() throws Exception {
+        final Path path = TEST_PATH.resolve("new.dedupe");
+        Files.deleteIfExists(path);
+        Main.main(path.toString());
+        Assert.assertTrue(Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS));
+    }
 
-        private class NewString implements Supplier<String> {
+    @Test
+    public final void main() throws Exception {
+        final Path path = TEST_PATH.resolve("default.dedupe");
+        Files.deleteIfExists(path);
+        Main.main(path.toString());
+        Assert.assertTrue(Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS));
+        Main.main(path.toString());
+        Assert.assertEquals(treeOf(SOURCE_PATH), treeOf(SUBJECT_PATH));
+        Assert.assertEquals("", treeOf(DOUBLET_PATH));
+        Assert.assertEquals(treeOf(SOURCE_PATH), treeOf(TEST_PATH.resolve("(trash)")));
+    }
 
-            @Override
-            public synchronized String get() {
-                if (this == stringSupplier) {
-                    final String result = newString("");
-                    stringSupplier = () -> result;
-                }
-                return stringSupplier.get();
+    private Object treeOf(final Path path) {
+        try {
+            if (Files.isDirectory(path)) {
+                return treeOf(Files.list(path));
+            } else {
+                return Files.size(path);
             }
+        } catch (final IOException e) {
+            throw new IllegalStateException(e.getMessage(), e);
         }
+    }
+
+    private Map<String, Object> treeOf(final Stream<? extends Path> paths) {
+        final Map<String, Object> result = new TreeMap<>();
+        final List<Path> children = paths.collect(Collectors.toList());
+        for (final Path child : children) {
+            result.put(child.getFileName().toString(), treeOf(child));
+        }
+        return result;
     }
 }
